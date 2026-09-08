@@ -1,0 +1,32 @@
+import { Router } from "express";
+import { authRouter } from "./auth.js";
+import { usersRouter } from "./users.js";
+import { plansRouter } from "./plans.js";
+import { videosRouter } from "./videos.js";
+import { companiesRouter } from "./companies.js";
+import { tagsRouter } from "./tags.js";
+import { communityRouter } from "./community.js";
+import { feedbacksRouter } from "./feedbacks.js";
+import { financeRouter } from "./finance.js";
+import { studentsRouter } from "./students.js";
+import { dashboardRouter } from "./dashboard.js";
+import { teiaRouter } from "./teia.js";
+import { lpRouter } from "./lp.js";
+import { webhooksRouter } from "./webhooks.js";
+
+export const router = Router();
+
+router.use("/auth", authRouter);
+router.use("/users", usersRouter);
+router.use("/plans", plansRouter);
+router.use("/videos", videosRouter);
+router.use("/companies", companiesRouter);
+router.use("/tags", tagsRouter);
+router.use("/community", communityRouter);
+router.use("/feedbacks", feedbacksRouter);
+router.use("/finance", financeRouter);
+router.use("/students", studentsRouter);
+router.use("/dashboard", dashboardRouter);
+router.use("/teia", teiaRouter);
+router.use("/lp", lpRouter);
+router.use("/webhooks", webhooksRouter);
