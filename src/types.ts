@@ -1,4 +1,36 @@
-export type Role = "admin" | "mentor" | "aluno";
+export type Role = "admin" | "mentor" | "aluno" | "staff";
+
+export const MODULES = [
+  "dashboard",
+  "alunos",
+  "conteudo",
+  "comunidade",
+  "financeiro",
+  "teia",
+  "usuarios",
+  "lp",
+  "staff",
+] as const;
+
+export type Module = (typeof MODULES)[number];
+
+export const CAPABILITIES = ["view", "create", "edit", "delete"] as const;
+
+export type Capability = (typeof CAPABILITIES)[number];
+
+export interface ModulePermissions {
+  view: boolean;
+  create: boolean;
+  edit: boolean;
+  delete: boolean;
+}
+
+export type PermissionMap = Partial<Record<Module, ModulePermissions>>;
+
+export function hasAnyAccess(permissions: ModulePermissions | undefined): boolean {
+  if (!permissions) return false;
+  return permissions.view || permissions.create || permissions.edit || permissions.delete;
+}
 
 export interface User {
   id: string;
@@ -8,6 +40,7 @@ export interface User {
   business: string | null;
   avatar: string | null;
   status: "ativo" | "inativo";
+  permissions: PermissionMap | null;
 }
 
 export interface Company {

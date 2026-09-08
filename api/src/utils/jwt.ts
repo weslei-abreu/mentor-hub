@@ -8,7 +8,7 @@ const REFRESH_EXPIRES_IN = process.env.JWT_REFRESH_EXPIRES_IN ?? "7d";
 
 export interface AccessTokenPayload {
   sub: string;
-  role: "admin" | "mentor" | "aluno";
+  role: "admin" | "mentor" | "aluno" | "staff";
 }
 
 export function signAccessToken(payload: AccessTokenPayload): string {

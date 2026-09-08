@@ -10,6 +10,12 @@ export const userIds = {
   cliente8: "00000000-0000-4000-8000-000000000018",
 };
 
+export const staffUserIds = {
+  conteudo: "00000000-0000-4000-8000-000000000021",
+  financeiro: "00000000-0000-4000-8000-000000000022",
+  suporte: "00000000-0000-4000-8000-000000000023",
+};
+
 export const clienteIds = [
   userIds.cliente1,
   userIds.cliente2,

@@ -10,19 +10,39 @@ import {
   signRefreshToken,
   verifyRefreshToken,
 } from "../utils/jwt.js";
+import { MODULES, noAccess, type Module, type ModulePermissions } from "../utils/modules.js";
 
 interface UserRow {
   id: string;
   name: string;
   email: string;
   password_hash: string;
-  role: "admin" | "mentor" | "aluno";
+  role: "admin" | "mentor" | "aluno" | "staff";
   business: string | null;
   avatar: string | null;
   status: "ativo" | "inativo";
 }
 
-function publicUser(user: UserRow) {
+async function staffPermissionsOf(userId: string) {
+  const rows = await db("staff_permissions").where({ user_id: userId });
+  const byModule = new Map(rows.map((row) => [row.module as Module, row]));
+
+  const permissions: Record<Module, ModulePermissions> = {} as Record<Module, ModulePermissions>;
+  for (const module of MODULES) {
+    const row = byModule.get(module);
+    permissions[module] = row
+      ? {
+          view: Boolean(row.can_view),
+          create: Boolean(row.can_create),
+          edit: Boolean(row.can_edit),
+          delete: Boolean(row.can_delete),
+        }
+      : noAccess();
+  }
+  return permissions;
+}
+
+async function publicUser(user: UserRow) {
   return {
     id: user.id,
     name: user.name,
@@ -31,6 +51,7 @@ function publicUser(user: UserRow) {
     business: user.business,
     avatar: user.avatar,
     status: user.status,
+    permissions: user.role === "staff" ? await staffPermissionsOf(user.id) : null,
   };
 }
 
@@ -56,7 +77,7 @@ export async function login(email: string, password: string) {
   }
   await db("users").where({ id: user.id }).update({ last_access: new Date() });
   const tokens = await issueTokens(user);
-  return { ...tokens, user: publicUser(user) };
+  return { ...tokens, user: await publicUser(user) };
 }
 
 // Refresh tokens são rotacionados a cada uso. Sem essa janela, duas abas do
@@ -94,7 +115,7 @@ export async function refresh(refreshToken: string) {
     await db("refresh_tokens").where({ id: stored.id }).update({ revoked_at: new Date() });
   }
   const tokens = await issueTokens(user);
-  return { ...tokens, user: publicUser(user) };
+  return { ...tokens, user: await publicUser(user) };
 }
 
 export async function logout(refreshToken: string) {

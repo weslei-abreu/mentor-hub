@@ -5,6 +5,7 @@ import { v4 as uuid } from "uuid";
 import { z } from "zod";
 import { db } from "../db/knex.js";
 import { requireAuth, requireRole } from "../middlewares/auth.js";
+import { checkModuleAccess } from "../middlewares/moduleAccess.js";
 import { validate } from "../middlewares/validate.js";
 import { HttpError } from "../middlewares/errorHandler.js";
 
@@ -43,9 +44,9 @@ lpRouter.get("/content", async (_req, res, next) => {
   }
 });
 
-lpRouter.use("/admin", requireAuth, requireRole("admin", "mentor"));
+lpRouter.use("/admin", requireAuth, requireRole("admin", "mentor", "staff"));
 
-lpRouter.get("/admin/content", async (_req, res, next) => {
+lpRouter.get("/admin/content", checkModuleAccess("lp", "view"), async (_req, res, next) => {
   try {
     const sections = await db("lp_content").orderBy("order", "asc");
     res.json(sections.map(parseContent));
@@ -61,6 +62,7 @@ const updateContentSchema = z.object({
 
 lpRouter.put(
   "/admin/content/:sectionKey",
+  checkModuleAccess("lp", "create", "edit"),
   validate(updateContentSchema),
   async (req, res, next) => {
     try {
@@ -94,60 +96,70 @@ const moveSchema = z.object({
   direction: z.enum(["up", "down"]),
 });
 
-lpRouter.patch("/admin/content/:sectionKey/order", validate(moveSchema), async (req, res, next) => {
-  try {
-    const sections = await db("lp_content").orderBy("order", "asc");
-    const index = sections.findIndex((s) => s.section_key === req.params.sectionKey);
-    if (index === -1) throw new HttpError(404, "Seção não encontrada.");
+lpRouter.patch(
+  "/admin/content/:sectionKey/order",
+  checkModuleAccess("lp", "edit"),
+  validate(moveSchema),
+  async (req, res, next) => {
+    try {
+      const sections = await db("lp_content").orderBy("order", "asc");
+      const index = sections.findIndex((s) => s.section_key === req.params.sectionKey);
+      if (index === -1) throw new HttpError(404, "Seção não encontrada.");
 
-    const swapIndex = req.body.direction === "up" ? index - 1 : index + 1;
-    if (swapIndex < 0 || swapIndex >= sections.length) {
-      res.json(sections.map(parseContent));
-      return;
+      const swapIndex = req.body.direction === "up" ? index - 1 : index + 1;
+      if (swapIndex < 0 || swapIndex >= sections.length) {
+        res.json(sections.map(parseContent));
+        return;
+      }
+
+      const current = sections[index]!;
+      const swap = sections[swapIndex]!;
+      await db.transaction(async (trx) => {
+        await trx("lp_content").where({ id: current.id }).update({ order: swap.order });
+        await trx("lp_content").where({ id: swap.id }).update({ order: current.order });
+      });
+
+      res.json((await db("lp_content").orderBy("order", "asc")).map(parseContent));
+    } catch (error) {
+      next(error);
     }
-
-    const current = sections[index]!;
-    const swap = sections[swapIndex]!;
-    await db.transaction(async (trx) => {
-      await trx("lp_content").where({ id: current.id }).update({ order: swap.order });
-      await trx("lp_content").where({ id: swap.id }).update({ order: current.order });
-    });
-
-    res.json((await db("lp_content").orderBy("order", "asc")).map(parseContent));
-  } catch (error) {
-    next(error);
-  }
-});
+  },
+);
 
 const mediaSchema = z.object({
   sectionKey: z.enum(["hero", "beneficios", "depoimentos", "planos", "faq", "footer"]),
   alt: z.string().optional(),
 });
 
-lpRouter.post("/admin/media", upload.single("file"), async (req, res, next) => {
-  try {
-    if (!req.file) throw new HttpError(422, "Arquivo obrigatório.");
-    const { sectionKey, alt } = mediaSchema.parse(req.body);
+lpRouter.post(
+  "/admin/media",
+  checkModuleAccess("lp", "create"),
+  upload.single("file"),
+  async (req, res, next) => {
+    try {
+      if (!req.file) throw new HttpError(422, "Arquivo obrigatório.");
+      const { sectionKey, alt } = mediaSchema.parse(req.body);
 
-    const id = uuid();
-    const maxOrder = await db("lp_media")
-      .where({ section_key: sectionKey })
-      .max("order as max")
-      .first();
-    await db("lp_media").insert({
-      id,
-      section_key: sectionKey,
-      url: `/uploads/${req.file.filename}`,
-      alt: alt ?? null,
-      order: (maxOrder?.max ?? 0) + 1,
-    });
-    res.status(201).json(await db("lp_media").where({ id }).first());
-  } catch (error) {
-    next(error);
-  }
-});
+      const id = uuid();
+      const maxOrder = await db("lp_media")
+        .where({ section_key: sectionKey })
+        .max("order as max")
+        .first();
+      await db("lp_media").insert({
+        id,
+        section_key: sectionKey,
+        url: `/uploads/${req.file.filename}`,
+        alt: alt ?? null,
+        order: (maxOrder?.max ?? 0) + 1,
+      });
+      res.status(201).json(await db("lp_media").where({ id }).first());
+    } catch (error) {
+      next(error);
+    }
+  },
+);
 
-lpRouter.delete("/admin/media/:id", async (req, res, next) => {
+lpRouter.delete("/admin/media/:id", checkModuleAccess("lp", "delete"), async (req, res, next) => {
   try {
     const deleted = await db("lp_media").where({ id: req.params.id }).del();
     if (!deleted) throw new HttpError(404, "Mídia não encontrada.");

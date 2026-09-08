@@ -2,7 +2,8 @@ import { Router } from "express";
 import { v4 as uuid } from "uuid";
 import { z } from "zod";
 import { db } from "../db/knex.js";
-import { requireAuth, requireRole } from "../middlewares/auth.js";
+import { requireAuth, requireRole, type AuthenticatedRequest } from "../middlewares/auth.js";
+import { checkModuleAccess } from "../middlewares/moduleAccess.js";
 import { validate } from "../middlewares/validate.js";
 import { HttpError } from "../middlewares/errorHandler.js";
 import { hashPassword } from "../utils/password.js";
@@ -22,7 +23,18 @@ const USER_COLUMNS = [
   "created_at",
 ];
 
-usersRouter.use(requireAuth, requireRole("admin", "mentor"));
+// Este módulo gerencia contas admin/mentor/aluno. A gestão de contas staff
+// (criação e permissões) tem endpoints próprios em /api/staff — um staff com
+// nível "edit" aqui nunca pode criar/promover uma conta para admin ou staff,
+// o que evitaria que ele se autoconceda privilégios por essa rota.
+function assertNoPrivilegeEscalation(actor: AuthenticatedRequest, targetRole?: string) {
+  if (actor.user!.role === "staff" && (targetRole === "admin" || targetRole === "staff")) {
+    throw new HttpError(403, "Você não pode atribuir esse perfil.");
+  }
+}
+
+usersRouter.use(requireAuth, requireRole("admin", "mentor", "staff"));
+usersRouter.use(checkModuleAccess("usuarios", "view"));
 
 const listSchema = z.object({
   role: z.enum(["admin", "mentor", "aluno"]).optional(),
@@ -40,6 +52,7 @@ usersRouter.get("/", validate(listSchema, "query"), async (req, res, next) => {
     const pagination = parsePagination(req.query as Record<string, unknown>);
 
     const base = db("users").modify((qb) => {
+      qb.whereNot("role", "staff");
       if (role) qb.where("role", role);
       if (status) qb.where("status", status);
       if (q) qb.where((qb2) => qb2.whereILike("name", `%${q}%`).orWhereILike("email", `%${q}%`));
@@ -63,7 +76,11 @@ usersRouter.get("/", validate(listSchema, "query"), async (req, res, next) => {
 
 usersRouter.get("/:id", async (req, res, next) => {
   try {
-    const user = await db("users").select(USER_COLUMNS).where({ id: req.params.id }).first();
+    const user = await db("users")
+      .select(USER_COLUMNS)
+      .where({ id: req.params.id })
+      .whereNot("role", "staff")
+      .first();
     if (!user) throw new HttpError(404, "Usuário não encontrado.");
     res.json(user);
   } catch (error) {
@@ -79,28 +96,35 @@ const createSchema = z.object({
   business: z.string().optional(),
 });
 
-usersRouter.post("/", requireRole("admin"), validate(createSchema), async (req, res, next) => {
-  try {
-    const { name, email, password, role, business } = req.body;
-    const existing = await db("users").where({ email }).first();
-    if (existing) throw new HttpError(409, "Já existe um usuário com este e-mail.");
+usersRouter.post(
+  "/",
+  requireRole("admin", "staff"),
+  checkModuleAccess("usuarios", "create"),
+  validate(createSchema),
+  async (req: AuthenticatedRequest, res, next) => {
+    try {
+      assertNoPrivilegeEscalation(req, req.body.role);
+      const { name, email, password, role, business } = req.body;
+      const existing = await db("users").where({ email }).first();
+      if (existing) throw new HttpError(409, "Já existe um usuário com este e-mail.");
 
-    const id = uuid();
-    await db("users").insert({
-      id,
-      name,
-      email,
-      password_hash: await hashPassword(password),
-      role,
-      business: business ?? null,
-      status: "ativo",
-    });
-    const user = await db("users").select(USER_COLUMNS).where({ id }).first();
-    res.status(201).json(user);
-  } catch (error) {
-    next(error);
-  }
-});
+      const id = uuid();
+      await db("users").insert({
+        id,
+        name,
+        email,
+        password_hash: await hashPassword(password),
+        role,
+        business: business ?? null,
+        status: "ativo",
+      });
+      const user = await db("users").select(USER_COLUMNS).where({ id }).first();
+      res.status(201).json(user);
+    } catch (error) {
+      next(error);
+    }
+  },
+);
 
 const updateSchema = z.object({
   name: z.string().min(1).optional(),
@@ -110,26 +134,44 @@ const updateSchema = z.object({
   avatar: z.string().optional(),
 });
 
-usersRouter.patch("/:id", requireRole("admin"), validate(updateSchema), async (req, res, next) => {
-  try {
-    const updated = await db("users").where({ id: req.params.id }).update(req.body);
-    if (!updated) throw new HttpError(404, "Usuário não encontrado.");
-    const user = await db("users").select(USER_COLUMNS).where({ id: req.params.id }).first();
-    res.json(user);
-  } catch (error) {
-    next(error);
-  }
-});
+usersRouter.patch(
+  "/:id",
+  requireRole("admin", "staff"),
+  checkModuleAccess("usuarios", "edit"),
+  validate(updateSchema),
+  async (req: AuthenticatedRequest, res, next) => {
+    try {
+      assertNoPrivilegeEscalation(req, req.body.role);
+      const updated = await db("users")
+        .where({ id: req.params.id })
+        .whereNot("role", "staff")
+        .update(req.body);
+      if (!updated) throw new HttpError(404, "Usuário não encontrado.");
+      const user = await db("users").select(USER_COLUMNS).where({ id: req.params.id }).first();
+      res.json(user);
+    } catch (error) {
+      next(error);
+    }
+  },
+);
 
-usersRouter.delete("/:id", requireRole("admin"), async (req, res, next) => {
-  try {
-    const deleted = await db("users").where({ id: req.params.id }).del();
-    if (!deleted) throw new HttpError(404, "Usuário não encontrado.");
-    res.status(204).send();
-  } catch (error) {
-    next(error);
-  }
-});
+usersRouter.delete(
+  "/:id",
+  requireRole("admin", "staff"),
+  checkModuleAccess("usuarios", "delete"),
+  async (req, res, next) => {
+    try {
+      const deleted = await db("users")
+        .where({ id: req.params.id })
+        .whereNot("role", "staff")
+        .del();
+      if (!deleted) throw new HttpError(404, "Usuário não encontrado.");
+      res.status(204).send();
+    } catch (error) {
+      next(error);
+    }
+  },
+);
 
 const resetPasswordSchema = z.object({
   password: z.string().min(6),
@@ -137,13 +179,15 @@ const resetPasswordSchema = z.object({
 
 usersRouter.post(
   "/:id/reset-password",
-  requireRole("admin"),
+  requireRole("admin", "staff"),
+  checkModuleAccess("usuarios", "edit"),
   validate(resetPasswordSchema),
   async (req, res, next) => {
     try {
       const passwordHash = await hashPassword(req.body.password);
       const updated = await db("users")
         .where({ id: req.params.id })
+        .whereNot("role", "staff")
         .update({ password_hash: passwordHash });
       if (!updated) throw new HttpError(404, "Usuário não encontrado.");
       await db("refresh_tokens")

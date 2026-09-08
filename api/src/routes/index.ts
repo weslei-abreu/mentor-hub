@@ -12,6 +12,7 @@ import { studentsRouter } from "./students.js";
 import { dashboardRouter } from "./dashboard.js";
 import { teiaRouter } from "./teia.js";
 import { lpRouter } from "./lp.js";
+import { staffRouter } from "./staff.js";
 import { webhooksRouter } from "./webhooks.js";
 
 export const router = Router();
@@ -29,4 +30,5 @@ router.use("/students", studentsRouter);
 router.use("/dashboard", dashboardRouter);
 router.use("/teia", teiaRouter);
 router.use("/lp", lpRouter);
+router.use("/staff", staffRouter);
 router.use("/webhooks", webhooksRouter);

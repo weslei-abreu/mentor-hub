@@ -10,6 +10,7 @@ import {
   requireRole,
   type AuthenticatedRequest,
 } from "../middlewares/auth.js";
+import { checkModuleAccess } from "../middlewares/moduleAccess.js";
 import { validate } from "../middlewares/validate.js";
 import { HttpError } from "../middlewares/errorHandler.js";
 import { parsePagination, paginationMeta } from "../utils/pagination.js";
@@ -72,7 +73,7 @@ videosRouter.get(
       const base = db("videos").modify((qb) => {
         if (q)
           qb.where((qb2) =>
-            qb2.whereILike("title", `%${q}%`).orWhereILike("description", `%${q}%`),
+            qb2.whereILike("videos.title", `%${q}%`).orWhereILike("videos.description", `%${q}%`),
           );
         if (companyId) qb.where("company_id", companyId);
         if (publishedFrom) qb.where("published_at", ">=", publishedFrom);
@@ -148,7 +149,8 @@ videosRouter.get("/:id", optionalAuth, async (req: AuthenticatedRequest, res, ne
 videosRouter.post(
   "/upload-file",
   requireAuth,
-  requireRole("admin", "mentor"),
+  requireRole("admin", "mentor", "staff"),
+  checkModuleAccess("conteudo", "create", "edit"),
   uploadVideoFile.single("file"),
   (req, res, next) => {
     try {
@@ -163,7 +165,8 @@ videosRouter.post(
 videosRouter.post(
   "/upload-thumbnail",
   requireAuth,
-  requireRole("admin", "mentor"),
+  requireRole("admin", "mentor", "staff"),
+  checkModuleAccess("conteudo", "create", "edit"),
   uploadThumbnail.single("file"),
   (req, res, next) => {
     try {
@@ -225,7 +228,8 @@ const createSchema = z.object({
 videosRouter.post(
   "/",
   requireAuth,
-  requireRole("admin", "mentor"),
+  requireRole("admin", "mentor", "staff"),
+  checkModuleAccess("conteudo", "create"),
   validate(createSchema),
   async (req, res, next) => {
     try {
@@ -267,7 +271,8 @@ const updateSchema = z.object({
 videosRouter.patch(
   "/:id",
   requireAuth,
-  requireRole("admin", "mentor"),
+  requireRole("admin", "mentor", "staff"),
+  checkModuleAccess("conteudo", "edit"),
   validate(updateSchema),
   async (req, res, next) => {
     try {

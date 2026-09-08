@@ -1,9 +1,9 @@
-import { Link, Outlet, useNavigate } from "@tanstack/react-router";
-import { Menu, LogOut, GraduationCap, LineChart } from "lucide-react";
+import { Link, Navigate, Outlet, useNavigate, useRouterState } from "@tanstack/react-router";
+import { Menu, LogOut, GraduationCap, LineChart, ShieldAlert } from "lucide-react";
 import { useState, type ComponentType } from "react";
 import { Sheet, SheetContent, SheetTrigger, SheetTitle } from "@/components/ui/sheet";
 import { useAuth } from "@/store/auth";
-import { BRAND } from "@/types";
+import { BRAND, hasAnyAccess, type Module } from "@/types";
 import { cn } from "@/lib/utils";
 
 export interface NavItem {
@@ -11,6 +11,20 @@ export interface NavItem {
   label: string;
   icon: ComponentType<{ className?: string }>;
   exact?: boolean;
+  // Módulo dono desta seção, usado para restringir o menu e o acesso à rota
+  // para usuários staff. Itens sem módulo (ex.: páginas do aluno) nunca são
+  // restringidos.
+  module?: Module;
+  // Prefixos de rota adicionais que também pertencem a este módulo (ex.: a
+  // página de detalhe de um aluno vive em /mentor/aluno/:id, fora do prefixo
+  // /mentor/alunos do item de menu). Por padrão só `to` é considerado.
+  matchPrefixes?: string[];
+}
+
+function itemMatchesPath(item: NavItem, pathname: string): boolean {
+  if (item.exact) return pathname === item.to;
+  const prefixes = item.matchPrefixes ?? [item.to];
+  return prefixes.some((p) => pathname === p || pathname.startsWith(`${p}/`));
 }
 
 export function PanelShell({
@@ -25,7 +39,18 @@ export function PanelShell({
   const [open, setOpen] = useState(false);
   const { user, logout } = useAuth();
   const navigate = useNavigate();
+  const pathname = useRouterState({ select: (s) => s.location.pathname });
   const RoleIcon = role === "mentor" ? LineChart : GraduationCap;
+
+  const isStaff = user?.role === "staff";
+  const permissions = user?.permissions ?? null;
+
+  function hasAccess(item: NavItem): boolean {
+    if (!isStaff || !item.module) return true;
+    return hasAnyAccess(permissions?.[item.module]);
+  }
+
+  const visibleNav = nav.filter(hasAccess);
 
   async function handleLogout() {
     await logout();
@@ -34,7 +59,7 @@ export function PanelShell({
 
   const navList = (onNavigate?: () => void) => (
     <nav className="flex flex-col gap-1">
-      {nav.map((item) => (
+      {visibleNav.map((item) => (
         <Link
           key={item.to}
           to={item.to as never}
@@ -105,9 +130,46 @@ export function PanelShell({
 
       <main className={cn("lg:pl-60")}>
         <div className="mx-auto max-w-[1600px] px-4 pb-20 pt-6 md:px-8 md:py-10 lg:pb-10">
-          <Outlet />
+          <ModuleGuardedContent
+            isStaff={isStaff}
+            currentItem={nav.find((item) => itemMatchesPath(item, pathname))}
+            hasAccess={hasAccess}
+            fallbackTo={visibleNav[0]?.to}
+          />
         </div>
       </main>
     </div>
   );
+}
+
+// Um staff pode digitar a URL de um módulo sem acesso diretamente — o menu
+// já esconde o link, mas a rota em si também precisa recusar o conteúdo, daí
+// esse guard em volta do Outlet (não basta esconder no menu).
+function ModuleGuardedContent({
+  isStaff,
+  currentItem,
+  hasAccess,
+  fallbackTo,
+}: {
+  isStaff: boolean;
+  currentItem: NavItem | undefined;
+  hasAccess: (item: NavItem) => boolean;
+  fallbackTo: string | undefined;
+}) {
+  if (isStaff && currentItem && !hasAccess(currentItem)) {
+    if (fallbackTo) {
+      return <Navigate to={fallbackTo as never} />;
+    }
+    return (
+      <div className="flex flex-col items-center gap-3 rounded-xl border border-border bg-card p-10 text-center">
+        <ShieldAlert className="h-8 w-8 text-muted-foreground" />
+        <p className="text-sm font-medium">Você não tem acesso a nenhum módulo</p>
+        <p className="text-xs text-muted-foreground">
+          Fale com um administrador para liberar seu acesso.
+        </p>
+      </div>
+    );
+  }
+
+  return <Outlet />;
 }

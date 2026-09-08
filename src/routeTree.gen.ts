@@ -27,6 +27,7 @@ import { Route as MentorComunidadeRouteImport } from './routes/mentor.comunidade
 import { Route as MentorConteudoRouteImport } from './routes/mentor.conteudo'
 import { Route as MentorFinanceiroRouteImport } from './routes/mentor.financeiro'
 import { Route as MentorLpRouteImport } from './routes/mentor.lp'
+import { Route as MentorStaffRouteImport } from './routes/mentor.staff'
 import { Route as MentorTeiaRouteImport } from './routes/mentor.teia'
 import { Route as MentorUsuariosRouteImport } from './routes/mentor.usuarios'
 import { Route as RedefinirSenhaTokenRouteImport } from './routes/redefinir-senha.$token'
@@ -126,6 +127,11 @@ const MentorLpRoute = MentorLpRouteImport.update({
   path: '/lp',
   getParentRoute: () => MentorRoute,
 } as any)
+const MentorStaffRoute = MentorStaffRouteImport.update({
+  id: '/staff',
+  path: '/staff',
+  getParentRoute: () => MentorRoute,
+} as any)
 const MentorTeiaRoute = MentorTeiaRouteImport.update({
   id: '/teia',
   path: '/teia',
@@ -184,6 +190,7 @@ export interface FileRoutesByFullPath {
   '/mentor/conteudo': typeof MentorConteudoRoute
   '/mentor/financeiro': typeof MentorFinanceiroRoute
   '/mentor/lp': typeof MentorLpRoute
+  '/mentor/staff': typeof MentorStaffRoute
   '/mentor/teia': typeof MentorTeiaRoute
   '/mentor/usuarios': typeof MentorUsuariosRoute
   '/redefinir-senha/$token': typeof RedefinirSenhaTokenRoute
@@ -210,6 +217,7 @@ export interface FileRoutesByTo {
   '/mentor/conteudo': typeof MentorConteudoRoute
   '/mentor/financeiro': typeof MentorFinanceiroRoute
   '/mentor/lp': typeof MentorLpRoute
+  '/mentor/staff': typeof MentorStaffRoute
   '/mentor/teia': typeof MentorTeiaRoute
   '/mentor/usuarios': typeof MentorUsuariosRoute
   '/redefinir-senha/$token': typeof RedefinirSenhaTokenRoute
@@ -239,6 +247,7 @@ export interface FileRoutesById {
   '/mentor/conteudo': typeof MentorConteudoRoute
   '/mentor/financeiro': typeof MentorFinanceiroRoute
   '/mentor/lp': typeof MentorLpRoute
+  '/mentor/staff': typeof MentorStaffRoute
   '/mentor/teia': typeof MentorTeiaRoute
   '/mentor/usuarios': typeof MentorUsuariosRoute
   '/redefinir-senha/$token': typeof RedefinirSenhaTokenRoute
@@ -269,6 +278,7 @@ export interface FileRouteTypes {
     | '/mentor/conteudo'
     | '/mentor/financeiro'
     | '/mentor/lp'
+    | '/mentor/staff'
     | '/mentor/teia'
     | '/mentor/usuarios'
     | '/redefinir-senha/$token'
@@ -295,6 +305,7 @@ export interface FileRouteTypes {
     | '/mentor/conteudo'
     | '/mentor/financeiro'
     | '/mentor/lp'
+    | '/mentor/staff'
     | '/mentor/teia'
     | '/mentor/usuarios'
     | '/redefinir-senha/$token'
@@ -323,6 +334,7 @@ export interface FileRouteTypes {
     | '/mentor/conteudo'
     | '/mentor/financeiro'
     | '/mentor/lp'
+    | '/mentor/staff'
     | '/mentor/teia'
     | '/mentor/usuarios'
     | '/redefinir-senha/$token'
@@ -473,6 +485,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof MentorLpRouteImport
       parentRoute: typeof MentorRoute
     }
+    '/mentor/staff': {
+      id: '/mentor/staff'
+      path: '/staff'
+      fullPath: '/mentor/staff'
+      preLoaderRoute: typeof MentorStaffRouteImport
+      parentRoute: typeof MentorRoute
+    }
     '/mentor/teia': {
       id: '/mentor/teia'
       path: '/teia'
@@ -564,6 +583,7 @@ interface MentorRouteChildren {
   MentorConteudoRoute: typeof MentorConteudoRoute
   MentorFinanceiroRoute: typeof MentorFinanceiroRoute
   MentorLpRoute: typeof MentorLpRoute
+  MentorStaffRoute: typeof MentorStaffRoute
   MentorTeiaRoute: typeof MentorTeiaRoute
   MentorUsuariosRoute: typeof MentorUsuariosRoute
   MentorIndexRoute: typeof MentorIndexRoute
@@ -577,6 +597,7 @@ const MentorRouteChildren: MentorRouteChildren = {
   MentorConteudoRoute: MentorConteudoRoute,
   MentorFinanceiroRoute: MentorFinanceiroRoute,
   MentorLpRoute: MentorLpRoute,
+  MentorStaffRoute: MentorStaffRoute,
   MentorTeiaRoute: MentorTeiaRoute,
   MentorUsuariosRoute: MentorUsuariosRoute,
   MentorIndexRoute: MentorIndexRoute,

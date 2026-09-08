@@ -19,6 +19,7 @@ const TABLES_IN_DELETE_ORDER = [
   "plans",
   "refresh_tokens",
   "password_resets",
+  "staff_permissions",
   "users",
 ];
 

@@ -3,6 +3,7 @@ import { v4 as uuid } from "uuid";
 import { z } from "zod";
 import { db } from "../db/knex.js";
 import { requireAuth, requireRole, type AuthenticatedRequest } from "../middlewares/auth.js";
+import { checkModuleAccess } from "../middlewares/moduleAccess.js";
 import { validate } from "../middlewares/validate.js";
 import { HttpError } from "../middlewares/errorHandler.js";
 import { parsePagination, paginationMeta } from "../utils/pagination.js";
@@ -241,13 +242,18 @@ teiaRouter.get("/graph", async (req: AuthenticatedRequest, res, next) => {
   }
 });
 
-teiaRouter.get("/admin/graph", requireRole("admin", "mentor"), async (_req, res, next) => {
-  try {
-    res.json(await buildFullGraph());
-  } catch (error) {
-    next(error);
-  }
-});
+teiaRouter.get(
+  "/admin/graph",
+  requireRole("admin", "mentor", "staff"),
+  checkModuleAccess("teia", "view"),
+  async (_req, res, next) => {
+    try {
+      res.json(await buildFullGraph());
+    } catch (error) {
+      next(error);
+    }
+  },
+);
 
 const adminListSchema = z.object({
   field: z.string().optional(),
@@ -261,7 +267,8 @@ const adminListSchema = z.object({
 
 teiaRouter.get(
   "/admin/requests",
-  requireRole("admin", "mentor"),
+  requireRole("admin", "mentor", "staff"),
+  checkModuleAccess("teia", "view"),
   validate(adminListSchema, "query"),
   async (req, res, next) => {
     try {

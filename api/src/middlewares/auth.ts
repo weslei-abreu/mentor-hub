@@ -30,7 +30,7 @@ export function optionalAuth(req: AuthenticatedRequest, _res: Response, next: Ne
   next();
 }
 
-export function requireRole(...roles: Array<"admin" | "mentor" | "aluno">) {
+export function requireRole(...roles: Array<"admin" | "mentor" | "aluno" | "staff">) {
   return (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
     if (!req.user || !roles.includes(req.user.role)) {
       return res.status(403).json({ message: "Sem permissão para acessar este recurso." });

@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { db } from "../db/knex.js";
 import { requireAuth, requireRole, type AuthenticatedRequest } from "../middlewares/auth.js";
+import { checkModuleAccess } from "../middlewares/moduleAccess.js";
 import { attachProgress, attachTags } from "../services/videoService.js";
 import * as dashboardService from "../services/dashboardService.js";
 
@@ -8,13 +9,18 @@ export const dashboardRouter = Router();
 
 dashboardRouter.use(requireAuth);
 
-dashboardRouter.get("/mentor", requireRole("admin", "mentor"), async (_req, res, next) => {
-  try {
-    res.json(await dashboardService.mentorDashboard());
-  } catch (error) {
-    next(error);
-  }
-});
+dashboardRouter.get(
+  "/mentor",
+  requireRole("admin", "mentor", "staff"),
+  checkModuleAccess("dashboard", "view"),
+  async (_req, res, next) => {
+    try {
+      res.json(await dashboardService.mentorDashboard());
+    } catch (error) {
+      next(error);
+    }
+  },
+);
 
 dashboardRouter.get("/aluno", async (req: AuthenticatedRequest, res, next) => {
   try {

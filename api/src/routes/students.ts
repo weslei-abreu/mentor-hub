@@ -2,6 +2,7 @@ import { Router } from "express";
 import { z } from "zod";
 import { db } from "../db/knex.js";
 import { requireAuth, requireRole, type AuthenticatedRequest } from "../middlewares/auth.js";
+import { checkModuleAccess } from "../middlewares/moduleAccess.js";
 import { validate } from "../middlewares/validate.js";
 import { HttpError } from "../middlewares/errorHandler.js";
 import { parsePagination, paginationMeta } from "../utils/pagination.js";
@@ -21,7 +22,11 @@ studentsRouter.get("/me/progress", requireAuth, async (req: AuthenticatedRequest
   }
 });
 
-studentsRouter.use(requireAuth, requireRole("admin", "mentor"));
+studentsRouter.use(
+  requireAuth,
+  requireRole("admin", "mentor", "staff"),
+  checkModuleAccess("alunos", "view"),
+);
 
 const listSchema = z.object({
   status: z.enum(["ativo", "inativo"]).optional(),
