@@ -1,18 +1,28 @@
 import { copyFileSync, existsSync } from "node:fs";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 import { tanstackRouter } from "@tanstack/router-plugin/vite";
 import tailwindcss from "@tailwindcss/vite";
 import react from "@vitejs/plugin-react";
 import { defineConfig, loadEnv } from "vite";
 import tsconfigPaths from "vite-tsconfig-paths";
 
+const rootDir = path.dirname(fileURLToPath(import.meta.url));
+
 function copyHtaccess() {
   return {
     name: "copy-htaccess",
-    closeBundle() {
-      const from = path.resolve(process.cwd(), "public", ".htaccess");
-      const to = path.resolve(process.cwd(), "dist", ".htaccess");
-      if (existsSync(from)) copyFileSync(from, to);
+    apply: "build" as const,
+    enforce: "post" as const,
+    writeBundle() {
+      const from = path.join(rootDir, "public", ".htaccess");
+      const to = path.join(rootDir, "dist", ".htaccess");
+      if (!existsSync(from)) {
+        console.warn("public/.htaccess nao encontrado");
+        return;
+      }
+      copyFileSync(from, to);
+      console.log("htaccess copiado para dist/.htaccess");
     },
   };
 }
